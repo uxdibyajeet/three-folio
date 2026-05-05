@@ -1,0 +1,28 @@
+{
+  "name": "three-folio",
+  "version": "1.0.0",
+  "description": "A three.js Portfolio Project",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uxdibyajeet/three-folio.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/uxdibyajeet/three-folio/issues"
+  },
+  "homepage": "https://github.com/uxdibyajeet/three-folio#readme",
+  "dependencies": {
+    "three": "^0.184.0",
+    "vite": "^8.0.10"
+  }
+}
