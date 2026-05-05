@@ -8,13 +8,13 @@ const user = 'Dibyajeet';
 console.log(`Hello! ${user}`);
 
 // Global variables
-let scene, camera, renderer, timer;
+let scene, camera, renderer, timer, floor;
 
 const cameraSettings = {
     fov: 50,
     near: 0.1,
     far: 1000,
-    position: { x: 0, y: 2, z: 5 },
+    position: { x: 10, y: 2, z: 10 },
 }
 
 const sunPosition = { x: 5, y: 10, z: 7 }
@@ -32,6 +32,7 @@ function init() {
         cameraSettings.far
     );
     camera.position.set(cameraSettings.position.x, cameraSettings.position.y, cameraSettings.position.z);
+    camera.lookAt(0, 0, 0);
 
     // Renderer Setup
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -43,31 +44,84 @@ function init() {
 
     // Initialize the world environment
     handleLights();
-    createEnvironment(); // Added this call
-    animate();           // Added this call
+    createEnvironment();
+    animate();           
 };
 
 function handleLights() {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
 
-    const sunLamp = new THREE.DirectionalLight(0xffffff, 0.8);
+    const sunLamp = new THREE.DirectionalLight(0xffffff, 1);
     sunLamp.position.set(sunPosition.x, sunPosition.y, sunPosition.z);
     scene.add(sunLamp);
 };
 
 function createEnvironment() {
-    const geometry = new THREE.PlaneGeometry(20, 20, 64, 64);
-    const material = new THREE.MeshStandardMaterial({ 
-        color: '#c5a172', 
-        wireframe: false,
-        roughness: 0.8
+    const geometry = new THREE.CircleGeometry(20, 256);
+    const material = new THREE.MeshStandardMaterial({
+        color: '#c5a172',
+        roughness: 0.9,
+        metalness: 0.0
     });
+    applyDisplacement(material);
     
-    const floor = new THREE.Mesh(geometry, material);
+    floor = new THREE.Mesh(geometry, material);
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 };
+
+function applyDisplacement(material) {
+    material.onBeforeCompile = (shader) => {
+        // 1. Add Uniforms
+        shader.uniforms.uStrength = { value: 1.2 }; 
+        shader.uniforms.uMidlevel = { value: 0.35 };
+        shader.uniforms.uSize = { value: 0.41 };
+
+        // 2. Vertex Shader: Define varying and logic
+        shader.vertexShader = `
+            uniform float uStrength;
+            uniform float uMidlevel;
+            uniform float uSize;
+            varying vec2 vUv; // Must be defined here
+
+            float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+            float noise(vec2 p) {
+                vec2 i = floor(p); vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(hash(i + vec2(0,0)), hash(i + vec2(1,0)), f.x),
+                           mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), f.x), f.y);
+            }
+            float fbm(vec2 p) {
+                float v = 0.0; float a = 0.5;
+                for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.0; a *= 0.5; }
+                return v;
+            }
+            ${shader.vertexShader}
+        `.replace(
+            '#include <begin_vertex>',
+            `
+            vUv = uv; // Assigning the value to pass to fragment
+            float rawNoise = fbm(vUv / uSize);
+            float elevation = (rawNoise - uMidlevel) * uStrength;
+            vec3 transformed = vec3(position.x, position.y, position.z + elevation);
+            `
+        );
+
+        // 3. Fragment Shader: Define varying and Circle Mask
+        shader.fragmentShader = `
+            varying vec2 vUv; // Must be defined here too
+            ${shader.fragmentShader}
+        `.replace(
+            'void main() {',
+            `
+            void main() {
+                // Circle mask: Center is (0.5, 0.5), Radius is 0.5
+                if(distance(vUv, vec2(0.5)) > 0.5) discard; 
+            `
+        );
+    };
+}
 
 function onWindodowResize() {
     // Update variables locally to get fresh window sizes
@@ -86,6 +140,7 @@ function animate() {
     const elapsedTime = timer.getElapsed();
     
     // to do parralax logic
+    // floor.material.uniforms.uTime.value = elapsedTime;
     
     renderer.render(scene, camera);
     window.requestAnimationFrame(animate);
