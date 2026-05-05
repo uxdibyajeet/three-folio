@@ -40,9 +40,14 @@ function init() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // Listeners
     window.addEventListener('resize', onWindodowResize);
+
+    scene.fog = new THREE.FogExp2('#c8b89a', 0.018);
 
     // Initialize the world environment
     handleLights();
@@ -52,7 +57,7 @@ function init() {
 
 function handleLights() {
     // Strong warm ambient = the "softbox" feel
-    const ambientLight = new THREE.AmbientLight(0xf5d9a8, 0.8);
+    const ambientLight = new THREE.AmbientLight(0xf5d9a8, 0.4);
     scene.add(ambientLight);
 
     const sunLamp = new THREE.DirectionalLight(0xfff0d0, 4.0); // warm, soft
@@ -81,27 +86,55 @@ function handleLights() {
 }
 
 function createEnvironment() {
-    const geometry = new THREE.PlaneGeometry(35, 35, 512, 512);
-    const material = new THREE.MeshStandardMaterial({
-        color: '#c5a172',
-        roughness: 0.8,
-        metalness: 0.0,
-        flatShading: false,
+    const geometry = new THREE.PlaneGeometry(50, 50, 512, 512);
+
+    const textureLoader = new THREE.TextureLoader();
+
+    // Load all maps — swap paths to your actual files
+    const colorMap     = textureLoader.load('/public/textures/sand/color.png');
+    const normalMap    = textureLoader.load('public/textures/sand/normal.png');
+    const roughnessMap = textureLoader.load('public/textures/sand/roughness.png');
+    const aoMap        = textureLoader.load('public/textures/sand/ao.jpg');
+    const displacementMap = textureLoader.load('/textures/sand/displacement.jpg'); // optional
+
+    // Tile all maps identically
+    [colorMap, normalMap, roughnessMap, aoMap, displacementMap].forEach(tex => {
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(12, 12); // adjust tiling to taste
     });
-    
+
+    const material = new THREE.MeshStandardMaterial({
+        map:              colorMap,
+        normalMap:        normalMap,
+        normalScale:      new THREE.Vector2(1, 1), // intensity of normal detail, 0-2
+        roughnessMap:     roughnessMap,
+        roughness:        0.9,   // multiplied with roughnessMap values
+        metalness:        0.0,
+        aoMap:            aoMap,
+        aoMapIntensity:   1.0,   // 0 = no AO, 1 = full AO
+        // displacementMap:  displacementMap, // only use if you remove shader displacement
+        // displacementScale: 0.3,
+        flatShading:      false,
+    });
+
     applyDisplacement(material);
 
-    // 1. Create the mesh first
     floor = new THREE.Mesh(geometry, material);
-    
-    // 2. Now that 'floor' exists, you can set its properties
     floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true; 
-    floor.castShadow = false;
 
+    // aoMap needs a second set of UVs — this copies uv to uv2
+    floor.geometry.setAttribute(
+        'uv2',
+        floor.geometry.attributes.uv
+    );
+
+    floor.receiveShadow = true;
+    floor.castShadow = false;
     scene.add(floor);
+
     createSky();
-};
+}
 
 function createSky() {
     // Large sphere that surrounds the scene
@@ -110,7 +143,7 @@ function createSky() {
         side: THREE.BackSide, // render inside of sphere
         uniforms: {
             uTopColor:    { value: new THREE.Color('#8bc7df') }, // sky blue
-            uBottomColor: { value: new THREE.Color('#c5b9a5') }, // sandy horizon
+            uBottomColor: { value: new THREE.Color('#ffffff') }, // sandy horizon
             uOffset:      { value: 0.1 },  // where the gradient starts
             uExponent:    { value: 0.3 },  // how sharp the blend is
         },
