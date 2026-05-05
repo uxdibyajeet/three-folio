@@ -10,14 +10,75 @@ console.log(`Hello! ${user}`);
 // Global variables
 let scene, camera, renderer, timer, floor;
 
-const cameraSettings = {
-    fov: 50,
-    near: 0.1,
-    far: 1000,
-    position: { x: 10, y: 2, z: 10 },
-}
+// ============================================================
+//  GLOBAL CONFIGURATION
+// ============================================================
 
-const sunPosition = { x: 5, y: 10, z: 7 }
+const cameraSettings = {
+    fov:      60,
+    near:     0.1,
+    far:      1000,
+    position: { x: 0, y: 1.5, z: 8 },
+    lookAt:   { x: 0, y: 0.5, z: 0 },
+};
+
+const sunSettings = {
+    color:        0xfff4e0,   // warm white
+    intensity:    4.0,
+    elevation:    50,         // degrees above horizon (90 = straight up)
+    azimuth:      -55,        // degrees horizontal rotation
+    distance:     20,         // how far from scene center
+    shadowMapSize: 2048,
+    shadowCameraSize: 15,     // left/right/top/bottom bounds
+    shadowBias:   -0.0003,
+};
+
+const ambientSettings = {
+    color:     0xf5d9a8,      // warm fill
+    intensity: 0.8,
+};
+
+const displacementSettings = {
+    strength:  0.5,           // height of peaks
+    midlevel:  0.4,           // baseline offset (0=all peaks, 1=all craters)
+    size:      0.08,          // noise frequency (smaller = finer detail)
+    offset:    0.001,         // normal calculation precision
+    worldScale: 50.0,         // should match plane size
+};
+
+const terrainSettings = {
+    size:      50,            // plane width & height
+    segments:  512,           // vertex density (256 mobile, 512 desktop)
+    roughness: 0.9,
+    metalness: 0.0,
+    textureTiling: 12,        // how many times texture repeats
+    aoIntensity:   1.0,
+    normalScale:   1.0,       // normal map bump intensity
+};
+
+const skySettings = {
+    topColor:    '#87CEEB',   // sky blue
+    bottomColor: '#c8b89a',   // warm horizon haze
+    offset:      0.3,         // gradient start height
+    exponent:    0.4,         // blend softness
+};
+
+const fogSettings = {
+    color:   '#c8b89a',       // should match sky bottomColor
+    density: 0.018,
+};
+
+const rendererSettings = {
+    toneMapping:         THREE.ACESFilmicToneMapping,
+    toneMappingExposure: 1.1,
+    pixelRatio:          2,   // cap for performance
+};
+
+
+// ============================================================
+//  End of configaration
+// ============================================================
+
 
 function init() {
     scene = new THREE.Scene();
