@@ -3,10 +3,10 @@ Author: Dibyajeet Kirttania
 Dated: 05 May, 2026
 */
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 // Global variables
-let scene, camera, renderer, timer, floor, controls;
+let scene, camera, renderer, timer, floor;
 
 const mouse = { x: 0, y: 0 };      // raw normalized mouse -1 to 1
 const target = { x: 0, y: 0 };     // smoothed target values
@@ -14,6 +14,16 @@ const target = { x: 0, y: 0 };     // smoothed target values
 // ============================================================
 //  GLOBAL CONFIGURATION
 // ============================================================
+
+const plinthSettings = {
+    horizontalDist: 3.5,
+    lateralDist: -2.0,
+    centralHeight:  1.5,
+    navHeight:      1.0,
+    bevel:          0.05,
+    segments:       2,
+    navY: 0.0 // // center Y — box extends ±navHeight/2, so top face sits at navY + navHeight/2
+};
 
 const controlSettings = {
     azimuthRange:  0.1,
@@ -25,7 +35,7 @@ const controlSettings = {
 };
 
 const cameraSettings = {
-    fov: 50,
+    fov: 30,
     near: 0.1,
     far: 1000,
     position: { x: 10, y: 2, z: 10 },
@@ -35,18 +45,19 @@ const cameraSettings = {
 const sunSettings = {
     color:        0xfff4e0,   // warm white
     intensity:    8.0,
-    elevation:    50,         // degrees above horizon (90 = straight up)
-    azimuth:      -55,        // degrees horizontal rotation
-    distance:     20,         // how far from scene center
+    elevation:    45,         // degrees above horizon (90 = straight up)
+    azimuth:      160,        // degrees horizontal rotation
+    distance:     30,         // how far from scene center
     shadowMapSize: 2048,
     shadowCameraSize: 15,     // left/right/top/bottom bounds
     shadowCameraFar: 50,
     shadowBias:   -0.0003,
+    shadowRadius: 3,
 };
 
 const ambientSettings = {
-    color:     0xf5d9a8,      // warm fill
-    intensity: 0.8,
+    color:     0xa8c4d8,      // cool fill
+    intensity: 1.2,
 };
 
 const displacementSettings = {
@@ -77,13 +88,19 @@ const skySettings = {
 
 const fogSettings = {
     color:   '#c8b89a',       // should match sky bottomColor
-    density: 0.018,
+    density: 0.03,
 };
 
 const rendererSettings = {
     toneMapping:         THREE.ACESFilmicToneMapping,
     toneMappingExposure: 1.1,
     pixelRatio:          2,   // cap for performance
+};
+
+const hemisphereSettings = {
+    skyColor:    0x8ab4d4,  // cool blue — matches ambientSettings
+    groundColor: 0xc4956a,  // warm amber — fills shadow with warmth
+    intensity:   0.4,
 };
 
 // ============================================================
@@ -120,19 +137,19 @@ function init() {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('resize', onWindowResize);
 
-    //Orbit Controls
-    function onMouseMove(e) {
-    // Normalize to -1 ... 1
-        mouse.x = (e.clientX / window.innerWidth)  * 2 - 1;
-        mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
-    }
-
     scene.fog = new THREE.FogExp2(fogSettings.color, fogSettings.density);
 
     // Initialize the world environment
     handleLights();
     createEnvironment();
     animate();           
+};
+
+//Handle orbit
+function onMouseMove(e) {
+// Normalize to -1 ... 1
+    mouse.x = (e.clientX / window.innerWidth)  * 2 - 1;
+    mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
 };
 
 //Lights
@@ -154,7 +171,15 @@ function handleLights() {
     scene.add(sunLamp);
     scene.add(sunLamp.target);
 
+    const hemiLight = new THREE.HemisphereLight(
+        hemisphereSettings.skyColor,
+        hemisphereSettings.groundColor,
+        hemisphereSettings.intensity
+    );
+    scene.add(hemiLight);
+
     sunLamp.castShadow = true;
+    sunLamp.shadow.radius = sunSettings.shadowRadius;
     sunLamp.shadow.mapSize.width = sunSettings.shadowMapSize;
     sunLamp.shadow.mapSize.height = sunSettings.shadowMapSize;
     sunLamp.shadow.camera.far = sunSettings.shadowCameraFar;
@@ -175,10 +200,9 @@ function createEnvironment() {
     const normalMap    = textureLoader.load('/textures/sand/normal.png');
     const roughnessMap = textureLoader.load('/textures/sand/roughness.png');
     const aoMap        = textureLoader.load('/textures/sand/ao.jpg');
-    const displacementMap = textureLoader.load('/textures/sand/displacement.jpg'); // optional
 
     // Tile all maps identically
-    [colorMap, normalMap, roughnessMap, aoMap, displacementMap].forEach(tex => {
+    [colorMap, normalMap, roughnessMap, aoMap].forEach(tex => {
         tex.wrapS = THREE.RepeatWrapping;
         tex.wrapT = THREE.RepeatWrapping;
         tex.repeat.set(terrainSettings.textureTiling, terrainSettings.textureTiling); // adjust tiling
@@ -195,8 +219,6 @@ function createEnvironment() {
         metalness:        terrainSettings.metalness,
         aoMap:            aoMap,
         aoMapIntensity:   terrainSettings.aoIntensity,   // 0 = no AO, 1 = full AO
-        // displacementMap:  displacementMap,
-        // displacementScale: 0.3,
         flatShading:      false,
     });
 
@@ -214,6 +236,7 @@ function createEnvironment() {
     floor.castShadow = false;
     scene.add(floor);
 
+    createPlinths();
     createSky();
 }
 
@@ -252,6 +275,49 @@ function createSky() {
     const sky = new THREE.Mesh(skyGeo, skyMat);
     scene.add(sky);
 };
+
+
+// Generate Plinths / bases
+function createPlinths() {
+    const { bevel, segments, centralHeight, navHeight, horizontalDist, navY, lateralDist } = plinthSettings;
+
+    const material = new THREE.MeshStandardMaterial({
+        color: '#ffffff',
+        roughness: 0.4,
+        metalness: 0.0,
+    });
+
+    // ── Central plinth ───────────────────────────────────────────
+    const centralGeo = new RoundedBoxGeometry(3, centralHeight, 3, segments, bevel);
+    const central    = new THREE.Mesh(centralGeo, material);
+    central.position.set(0, navY, 0);  // top face sits at y=0.35+rest, bottom buried
+    central.castShadow    = true;
+    central.receiveShadow = true;
+    scene.add(central);
+
+    // ── Nav plinths ──────────────────────────────────────────────
+    const navGeo  = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
+    const navMesh = new THREE.InstancedMesh(navGeo, material, 3);
+    navMesh.castShadow    = true;
+    navMesh.receiveShadow = true;
+
+    const matrix = new THREE.Matrix4();
+
+    // Left — experience (spread further from center)
+    matrix.makeTranslation(lateralDist, navY, horizontalDist);
+    navMesh.setMatrixAt(0, matrix);
+
+    // Right — about
+    matrix.makeTranslation(horizontalDist, navY, lateralDist);
+    navMesh.setMatrixAt(1, matrix);
+
+    // Front — projects
+    matrix.makeTranslation(horizontalDist, navY, horizontalDist);
+    navMesh.setMatrixAt(2, matrix);
+
+    navMesh.instanceMatrix.needsUpdate = true;
+    scene.add(navMesh);
+}
 
 //Logic for the terrain
 function applyDisplacement(material) {
