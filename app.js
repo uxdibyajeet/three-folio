@@ -44,6 +44,13 @@ const assetSettings = {
             plinth: 'central', 
             offset: { x: -0.5, y: 0, z: -0.8 }, 
             scale: 1.0 
+        },
+        { 
+            name: 'logo', 
+            path: '/models/logo-object.glb', 
+            plinth: 'central', 
+            offset: { x: -0.85, y: 0, z: 1.2 }, 
+            scale: 1.0 
         }
     ]
 };
@@ -53,9 +60,9 @@ const assetSettings = {
 const plinthSettings = {
     horizontalDist: 3.5,
     lateralDist: -2.0,
-    centralHeight:  1.5,
-    navHeight:      1.0,
-    bevel:          0.05,
+    centralHeight:  1.0,
+    navHeight:      0.5,
+    bevel:          0.025,
     segments:       2,
     navY: 0.0 // // center Y — box extends ±navHeight/2, so top face sits at navY + navHeight/2
 };
