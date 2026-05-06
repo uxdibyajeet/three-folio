@@ -281,42 +281,74 @@ function createSky() {
 function createPlinths() {
     const { bevel, segments, centralHeight, navHeight, horizontalDist, navY, lateralDist } = plinthSettings;
 
-    const material = new THREE.MeshStandardMaterial({
-        color: '#ffffff',
-        roughness: 0.4,
-        metalness: 0.0,
+    const textureLoader = new THREE.TextureLoader();
+
+    // ── Load maps ───────────────────────────────────
+    const normalMap    = textureLoader.load('/textures/plinth/normal.jpg');
+    const roughnessMap = textureLoader.load('/textures/plinth/roughness.jpg');
+
+    [normalMap, roughnessMap].forEach(tex => {
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(1, 1); // tweak if needed
     });
 
-    // ── Central plinth ───────────────────────────────────────────
+    // ── Base material ───────────────────────────────
+    const baseMaterial = new THREE.MeshStandardMaterial({
+        color: '#ffffff',          // HEX base color ✅
+        normalMap: normalMap,
+        roughnessMap: roughnessMap,
+        roughness: 1.0,            // let map drive it
+        metalness: 0.5,
+        normalScale: new THREE.Vector2(0.35, 0.35), // subtle is key
+    });
+
+    // ── Material variations ─────────────────────────
+    const matCenter = baseMaterial.clone();
+    matCenter.color.set('#EDE1D2');
+
+    const matLeft = baseMaterial.clone();
+    matLeft.color.set('#E3D4C3');
+
+    const matRight = baseMaterial.clone();
+    matRight.color.set('#D9C7B2');
+
+    const matFront = baseMaterial.clone();
+    matFront.color.set('#CFBBA4');
+
+    // ── Central plinth ──────────────────────────────
     const centralGeo = new RoundedBoxGeometry(3, centralHeight, 3, segments, bevel);
-    const central    = new THREE.Mesh(centralGeo, material);
-    central.position.set(0, navY, 0);  // top face sits at y=0.35+rest, bottom buried
-    central.castShadow    = true;
+    const central = new THREE.Mesh(centralGeo, matCenter);
+    central.position.set(0, navY, 0);
+    central.castShadow = true;
     central.receiveShadow = true;
     scene.add(central);
 
-    // ── Nav plinths ──────────────────────────────────────────────
-    const navGeo  = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
-    const navMesh = new THREE.InstancedMesh(navGeo, material, 3);
-    navMesh.castShadow    = true;
-    navMesh.receiveShadow = true;
+    // ── Left plinth ─────────────────────────────────
+    const leftGeo = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
+    const left = new THREE.Mesh(leftGeo, matLeft);
+    left.position.set(lateralDist, navY, horizontalDist);
+    left.castShadow = true;
+    left.receiveShadow = true;
+    scene.add(left);
 
-    const matrix = new THREE.Matrix4();
+    // ── Right plinth ────────────────────────────────
+    const rightGeo = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
+    const right = new THREE.Mesh(rightGeo, matRight);
+    right.position.set(horizontalDist, navY, lateralDist);
+    right.castShadow = true;
+    right.receiveShadow = true;
+    scene.add(right);
 
-    // Left — experience (spread further from center)
-    matrix.makeTranslation(lateralDist, navY, horizontalDist);
-    navMesh.setMatrixAt(0, matrix);
+    // ── Front plinth ────────────────────────────────
+    const frontGeo = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
+    const front = new THREE.Mesh(frontGeo, matFront);
+    front.position.set(horizontalDist, navY, horizontalDist);
+    front.castShadow = true;
+    front.receiveShadow = true;
+    scene.add(front);
 
-    // Right — about
-    matrix.makeTranslation(horizontalDist, navY, lateralDist);
-    navMesh.setMatrixAt(1, matrix);
-
-    // Front — projects
-    matrix.makeTranslation(horizontalDist, navY, horizontalDist);
-    navMesh.setMatrixAt(2, matrix);
-
-    navMesh.instanceMatrix.needsUpdate = true;
-    scene.add(navMesh);
+    return { central, left, right, front };
 }
 
 //Logic for the terrain
