@@ -8,22 +8,20 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 // Global variables
 let scene, camera, renderer, timer, floor, controls;
 
+const mouse = { x: 0, y: 0 };      // raw normalized mouse -1 to 1
+const target = { x: 0, y: 0 };     // smoothed target values
+
 // ============================================================
 //  GLOBAL CONFIGURATION
 // ============================================================
 
 const controlSettings = {
-    enableDamping:   true,
-    dampingFactor:   0.05,
-    enablePan:       false,    // no panning — rotation only
-    enableZoom:      false,    // no zoom — fixed distance
-    minDistance:     10,       // lock distance for parallax feel
-    maxDistance:     10,       // same as min = truly fixed distance
-    maxPolarAngle:   Math.PI / 2.2,  // can't go below ground
-    minPolarAngle:   Math.PI / 6,    // can't look straight up
-    rotateSpeed:     0.4,      // slower = more cinematic parallax feel
-    autoRotate:      false,    // set true if you want idle rotation
-    autoRotateSpeed: 0.5,
+    azimuthRange:  0.1,
+    altitudeRange: 0.025,
+    smoothingX:    0.02,   // slower = smoother horizontal, was 0.05
+    smoothingY:    0.05,   // vertical can stay snappier
+    minTilt:      -1.0,
+    maxTilt:       0.25,
 };
 
 const cameraSettings = {
@@ -118,27 +116,16 @@ function init() {
     renderer.toneMappingExposure = rendererSettings.toneMappingExposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-    //Camera Orbit
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping   = controlSettings.enableDamping;
-    controls.dampingFactor   = controlSettings.dampingFactor;
-    controls.enablePan       = controlSettings.enablePan;
-    controls.enableZoom      = controlSettings.enableZoom;
-    controls.minDistance     = controlSettings.minDistance;
-    controls.maxDistance     = controlSettings.maxDistance;
-    controls.maxPolarAngle   = controlSettings.maxPolarAngle;
-    controls.minPolarAngle   = controlSettings.minPolarAngle;
-    controls.rotateSpeed     = controlSettings.rotateSpeed;
-    controls.autoRotate      = controlSettings.autoRotate;
-    controls.autoRotateSpeed = controlSettings.autoRotateSpeed;
-    controls.target.set(
-        cameraSettings.lookAt.x,
-        cameraSettings.lookAt.y,
-        cameraSettings.lookAt.z
-    );
-
     // Listeners
+    window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('resize', onWindowResize);
+
+    //Orbit Controls
+    function onMouseMove(e) {
+    // Normalize to -1 ... 1
+        mouse.x = (e.clientX / window.innerWidth)  * 2 - 1;
+        mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
+    }
 
     scene.fog = new THREE.FogExp2(fogSettings.color, fogSettings.density);
 
@@ -383,14 +370,40 @@ function onWindowResize() {
 function animate() {
     timer.update();
     const elapsedTime = timer.getElapsed();
-    
-    controls.update();
 
-    // update terrain shader displacement
+    // Separate smoothing for X and Y
+    target.x += (mouse.x - target.x) * controlSettings.smoothingX;
+    target.y += (mouse.y - target.y) * controlSettings.smoothingY;
+
+    const clampedY = Math.max(controlSettings.minTilt, Math.min(controlSettings.maxTilt, target.y));
+
+    // Negate both axes to invert direction
+    const azimuth  = -target.x  * controlSettings.azimuthRange;
+    const altitude = -clampedY  * controlSettings.altitudeRange;
+
+    const radius = Math.sqrt(
+        cameraSettings.position.x ** 2 +
+        cameraSettings.position.y ** 2 +
+        cameraSettings.position.z ** 2
+    );
+
+    const baseAzimuth  = Math.atan2(cameraSettings.position.x, cameraSettings.position.z);
+    const baseAltitude = Math.asin(cameraSettings.position.y / radius);
+
+    camera.position.x = radius * Math.cos(baseAltitude - altitude) * Math.sin(baseAzimuth + azimuth);
+    camera.position.y = radius * Math.sin(baseAltitude - altitude);
+    camera.position.z = radius * Math.cos(baseAltitude - altitude) * Math.cos(baseAzimuth + azimuth);
+
+    camera.lookAt(
+        cameraSettings.lookAt.x,
+        cameraSettings.lookAt.y,
+        cameraSettings.lookAt.z
+    );
+
     if (floor && floor.material.userData.shader) {
         floor.material.userData.shader.uniforms.uTime.value = elapsedTime;
-    };
-    
+    }
+
     renderer.render(scene, camera);
     window.requestAnimationFrame(animate);
 }
