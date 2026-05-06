@@ -28,14 +28,21 @@ const assetSettings = {
             name: 'couch', 
             path: '/models/couch.glb', 
             plinth: 'central', 
-            offset: { x: 0, y: 0, z: 0 }, 
+            offset: { x: 0.25, y: 0, z: 0.2 }, 
             scale: 1.0 
         },
         { 
             name: 'arch', 
             path: '/models/arch-central.glb', 
             plinth: 'central', 
-            offset: { x: -0.7, y: 0, z: -1.0 }, 
+            offset: { x: -0.8, y: 0, z: -1.2 }, 
+            scale: 1.0 
+        },
+        { 
+            name: 'back-wall', 
+            path: '/models/back-wall-central.glb', 
+            plinth: 'central', 
+            offset: { x: -0.5, y: 0, z: -0.8 }, 
             scale: 1.0 
         }
     ]
@@ -74,7 +81,7 @@ const sunSettings = {
     color:        0xa8c4d8,   // warm white
     intensity:    6.0,
     elevation:    45,         // degrees above horizon (90 = straight up)
-    azimuth:      140,        // degrees horizontal rotation
+    azimuth:      162,        // degrees horizontal rotation
     distance:     30,         // how far from scene center
     shadowMapSize: 2048,
     shadowCameraSize: 15,     // left/right/top/bottom bounds
