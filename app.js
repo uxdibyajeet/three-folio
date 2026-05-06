@@ -4,6 +4,8 @@ Dated: 05 May, 2026
 */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 
 // Global variables
 let scene, camera, renderer, timer, floor;
@@ -14,6 +16,32 @@ const target = { x: 0, y: 0 };     // smoothed target values
 // ============================================================
 //  GLOBAL CONFIGURATION
 // ============================================================
+
+// asset import and settings
+const assetSettings = {
+    // Shared path for the Draco decoder
+    dracoPath: 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/',
+    
+    // The Manifest: Add new models here
+    manifest: [
+        { 
+            name: 'couch', 
+            path: '/models/couch.glb', 
+            plinth: 'central', 
+            offset: { x: 0, y: 0, z: 0 }, 
+            scale: 1.0 
+        },
+        { 
+            name: 'arch', 
+            path: '/models/arch-central.glb', 
+            plinth: 'central', 
+            offset: { x: -0.7, y: 0, z: -1.0 }, 
+            scale: 1.0 
+        }
+    ]
+};
+
+// other settings
 
 const plinthSettings = {
     horizontalDist: 3.5,
@@ -43,21 +71,21 @@ const cameraSettings = {
 }
 
 const sunSettings = {
-    color:        0xfff4e0,   // warm white
-    intensity:    8.0,
+    color:        0xa8c4d8,   // warm white
+    intensity:    6.0,
     elevation:    45,         // degrees above horizon (90 = straight up)
-    azimuth:      160,        // degrees horizontal rotation
+    azimuth:      140,        // degrees horizontal rotation
     distance:     30,         // how far from scene center
     shadowMapSize: 2048,
     shadowCameraSize: 15,     // left/right/top/bottom bounds
     shadowCameraFar: 50,
     shadowBias:   -0.0003,
-    shadowRadius: 0.8,
+    shadowRadius: 1.5,
 };
 
 const ambientSettings = {
-    color:     0xa8c4d8,      // cool fill
-    intensity: 1.2,
+    color:     0xffffff,      // cool fill
+    intensity: 1.0,
 };
 
 const displacementSettings = {
@@ -75,7 +103,7 @@ const terrainSettings = {
     roughness: 0.9,
     metalness: 0.0,
     textureTiling: 12,        // how many times texture repeats
-    aoIntensity:   1.0,
+    aoIntensity:   1.5,
     normalScale:   1.0,       // normal map bump intensity
 };
 
@@ -199,7 +227,7 @@ function createEnvironment() {
     const colorMap     = textureLoader.load('/textures/sand/color.png');
     const normalMap    = textureLoader.load('/textures/sand/normal.png');
     const roughnessMap = textureLoader.load('/textures/sand/roughness.png');
-    const aoMap        = textureLoader.load('/textures/sand/ao.jpg');
+    const aoMap        = textureLoader.load('/textures/sand/ao.png');
 
     // Tile all maps identically
     [colorMap, normalMap, roughnessMap, aoMap].forEach(tex => {
@@ -236,7 +264,8 @@ function createEnvironment() {
     floor.castShadow = false;
     scene.add(floor);
 
-    createPlinths();
+    const plinths = createPlinths();
+    assetFactory(plinths);
     createSky();
 }
 
@@ -290,35 +319,23 @@ function createPlinths() {
     [normalMap, roughnessMap].forEach(tex => {
         tex.wrapS = THREE.RepeatWrapping;
         tex.wrapT = THREE.RepeatWrapping;
-        tex.repeat.set(1, 1); // tweak if needed
+        tex.repeat.set(1, 1);
     });
 
-    // ── Base material ───────────────────────────────
+    // ── Single Unified Material ──────────────────────
+    // Using one material for all plinths saves GPU memory (draw calls)
     const baseMaterial = new THREE.MeshStandardMaterial({
-        color: '#ffffff',          // HEX base color ✅
+        color: '#EDE1D2',           // Set your preferred unified color here
         normalMap: normalMap,
         roughnessMap: roughnessMap,
-        roughness: 1.0,            // let map drive it
+        roughness: 1.0,
         metalness: 0.5,
-        normalScale: new THREE.Vector2(0.35, 0.35), // subtle is key
+        normalScale: new THREE.Vector2(0.35, 0.35),
     });
-
-    // ── Material variations ─────────────────────────
-    const matCenter = baseMaterial.clone();
-    matCenter.color.set('#EDE1D2');
-
-    const matLeft = baseMaterial.clone();
-    matLeft.color.set('#E3D4C3');
-
-    const matRight = baseMaterial.clone();
-    matRight.color.set('#D9C7B2');
-
-    const matFront = baseMaterial.clone();
-    matFront.color.set('#CFBBA4');
 
     // ── Central plinth ──────────────────────────────
     const centralGeo = new RoundedBoxGeometry(3, centralHeight, 3, segments, bevel);
-    const central = new THREE.Mesh(centralGeo, matCenter);
+    const central = new THREE.Mesh(centralGeo, baseMaterial);
     central.position.set(0, navY, 0);
     central.castShadow = true;
     central.receiveShadow = true;
@@ -326,7 +343,7 @@ function createPlinths() {
 
     // ── Left plinth ─────────────────────────────────
     const leftGeo = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
-    const left = new THREE.Mesh(leftGeo, matLeft);
+    const left = new THREE.Mesh(leftGeo, baseMaterial);
     left.position.set(lateralDist, navY, horizontalDist);
     left.castShadow = true;
     left.receiveShadow = true;
@@ -334,7 +351,7 @@ function createPlinths() {
 
     // ── Right plinth ────────────────────────────────
     const rightGeo = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
-    const right = new THREE.Mesh(rightGeo, matRight);
+    const right = new THREE.Mesh(rightGeo, baseMaterial);
     right.position.set(horizontalDist, navY, lateralDist);
     right.castShadow = true;
     right.receiveShadow = true;
@@ -342,13 +359,57 @@ function createPlinths() {
 
     // ── Front plinth ────────────────────────────────
     const frontGeo = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
-    const front = new THREE.Mesh(frontGeo, matFront);
+    const front = new THREE.Mesh(frontGeo, baseMaterial);
     front.position.set(horizontalDist, navY, horizontalDist);
     front.castShadow = true;
     front.receiveShadow = true;
     scene.add(front);
 
     return { central, left, right, front };
+}
+
+//importing assets
+function assetFactory(plinths) {
+    const loader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath(assetSettings.dracoPath);
+    loader.setDRACOLoader(dracoLoader);
+
+    assetSettings.manifest.forEach((asset) => {
+        loader.load(asset.path, (gltf) => {
+            const model = gltf.scene;
+            const targetPlinth = plinths[asset.plinth];
+
+            if (targetPlinth) {
+                // 1. Calculate Base Height (Top of Plinth)
+                const isCentral = asset.plinth === 'central';
+                const plinthHeight = isCentral ? plinthSettings.centralHeight : plinthSettings.navHeight;
+                const baseHeight = plinthSettings.navY + (plinthHeight / 2);
+
+                // 2. Apply Coordinates (Plinth Position + Fine-tune Offsets)
+                model.position.set(
+                    targetPlinth.position.x + asset.offset.x,
+                    baseHeight + asset.offset.y,
+                    targetPlinth.position.z + asset.offset.z
+                );
+
+                // 3. Apply Scale
+                model.scale.setScalar(asset.scale);
+
+                // 4. Inherit Shadows
+                model.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                    }
+                });
+
+                scene.add(model);
+            }
+        }, 
+        undefined, 
+        (err) => console.error(`Error loading ${asset.name}:`, err));
+    });
 }
 
 //Logic for the terrain
@@ -454,16 +515,23 @@ function applyDisplacement(material) {
 }
 
 function onWindowResize() {
-    // Update variables locally to get fresh window sizes
     const width = window.innerWidth;
     const height = window.innerHeight;
+    const aspect = width / height
+    camera.aspect = aspect;
+    //responsive resize
+    if (aspect < 1) {
+        let calculatedFov = cameraSettings.fov * (1 / aspect) * 1.6;
+        camera.fov = Math.min(75, calculatedFov);
+    } else {
+        camera.fov = cameraSettings.fov;
+    };
 
-    camera.aspect = width / height;
     camera.updateProjectionMatrix();
     
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, rendererSettings.pixelRatio));
-}
+};
 
 function animate() {
     timer.update();
