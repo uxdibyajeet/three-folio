@@ -3,20 +3,27 @@ Author: Dibyajeet Kirttania
 Dated: 05 May, 2026
 */
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // Global variables
-let scene, camera, renderer, timer, floor;
+let scene, camera, renderer, timer, floor, controls;
 
 // ============================================================
 //  GLOBAL CONFIGURATION
 // ============================================================
 
 const controlSettings = {
-    enableDamping: true,
-    dampingFactor: 0.05,
-    minDistance: 5,
-    maxDistance: 100,
-    maxPolarAngle: Math.PI / 2.1, // Prevents camera from going under the sand
+    enableDamping:   true,
+    dampingFactor:   0.05,
+    enablePan:       false,    // no panning — rotation only
+    enableZoom:      false,    // no zoom — fixed distance
+    minDistance:     10,       // lock distance for parallax feel
+    maxDistance:     10,       // same as min = truly fixed distance
+    maxPolarAngle:   Math.PI / 2.2,  // can't go below ground
+    minPolarAngle:   Math.PI / 6,    // can't look straight up
+    rotateSpeed:     0.4,      // slower = more cinematic parallax feel
+    autoRotate:      false,    // set true if you want idle rotation
+    autoRotateSpeed: 0.5,
 };
 
 const cameraSettings = {
@@ -35,6 +42,7 @@ const sunSettings = {
     distance:     20,         // how far from scene center
     shadowMapSize: 2048,
     shadowCameraSize: 15,     // left/right/top/bottom bounds
+    shadowCameraFar: 50,
     shadowBias:   -0.0003,
 };
 
@@ -97,7 +105,8 @@ function init() {
         cameraSettings.far
     );
     camera.position.set(cameraSettings.position.x, cameraSettings.position.y, cameraSettings.position.z);
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(cameraSettings.lookAt.x, cameraSettings.lookAt.y, cameraSettings.lookAt.z);
+
 
     // Renderer Setup
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -108,6 +117,25 @@ function init() {
     renderer.toneMapping = rendererSettings.toneMapping;
     renderer.toneMappingExposure = rendererSettings.toneMappingExposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    //Camera Orbit
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping   = controlSettings.enableDamping;
+    controls.dampingFactor   = controlSettings.dampingFactor;
+    controls.enablePan       = controlSettings.enablePan;
+    controls.enableZoom      = controlSettings.enableZoom;
+    controls.minDistance     = controlSettings.minDistance;
+    controls.maxDistance     = controlSettings.maxDistance;
+    controls.maxPolarAngle   = controlSettings.maxPolarAngle;
+    controls.minPolarAngle   = controlSettings.minPolarAngle;
+    controls.rotateSpeed     = controlSettings.rotateSpeed;
+    controls.autoRotate      = controlSettings.autoRotate;
+    controls.autoRotateSpeed = controlSettings.autoRotateSpeed;
+    controls.target.set(
+        cameraSettings.lookAt.x,
+        cameraSettings.lookAt.y,
+        cameraSettings.lookAt.z
+    );
 
     // Listeners
     window.addEventListener('resize', onWindowResize);
@@ -142,7 +170,7 @@ function handleLights() {
     sunLamp.castShadow = true;
     sunLamp.shadow.mapSize.width = sunSettings.shadowMapSize;
     sunLamp.shadow.mapSize.height = sunSettings.shadowMapSize;
-    sunLamp.shadow.camera.far = 50;
+    sunLamp.shadow.camera.far = sunSettings.shadowCameraFar;
     sunLamp.shadow.camera.left = -sunSettings.shadowCameraSize;
     sunLamp.shadow.camera.right = sunSettings.shadowCameraSize;
     sunLamp.shadow.camera.top = sunSettings.shadowCameraSize;
@@ -176,7 +204,7 @@ function createEnvironment() {
         normalMap:        normalMap,
         normalScale:      new THREE.Vector2(terrainSettings.normalScale, terrainSettings.normalScale), // intensity of normal detail
         roughnessMap:     roughnessMap,
-        roughness:        0.9,   // multiplied with roughnessMap values
+        roughness:        terrainSettings.roughness,   // multiplied with roughnessMap values
         metalness:        terrainSettings.metalness,
         aoMap:            aoMap,
         aoMapIntensity:   terrainSettings.aoIntensity,   // 0 = no AO, 1 = full AO
@@ -349,13 +377,15 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, rendererSettings.pixelRatio));
 }
 
 function animate() {
     timer.update();
     const elapsedTime = timer.getElapsed();
     
+    controls.update();
+
     // update terrain shader displacement
     if (floor && floor.material.userData.shader) {
         floor.material.userData.shader.uniforms.uTime.value = elapsedTime;
