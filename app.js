@@ -52,7 +52,7 @@ const sunSettings = {
     shadowCameraSize: 15,     // left/right/top/bottom bounds
     shadowCameraFar: 50,
     shadowBias:   -0.0003,
-    shadowRadius: 3,
+    shadowRadius: 0.8,
 };
 
 const ambientSettings = {
@@ -61,16 +61,16 @@ const ambientSettings = {
 };
 
 const displacementSettings = {
-    strength:  0.5,           // height of peaks
-    midlevel:  0.4,           // baseline offset (0=all peaks, 1=all craters)
-    size:      0.08,          // noise frequency (smaller = finer detail)
+    strength:  0.05,           // height of peaks
+    midlevel:  0.5,           // baseline offset (0=all peaks, 1=all craters)
+    size:      0.035,          // noise frequency (smaller = finer detail)
     offset:    0.001,         // normal calculation precision
-    worldScale: 50.0,         // should match plane size
-    animSpeed: 0.015,         // displacement Animation Speed
+    worldScale: 40.0,         // should match plane size
+    animSpeed: 0.15,         // displacement Animation Speed
 };
 
 const terrainSettings = {
-    size:      50,            // plane width & height
+    size:      40,            // plane width & height
     segments:  512,           // vertex density (256 mobile, 512 desktop)
     roughness: 0.9,
     metalness: 0.0,
