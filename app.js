@@ -35,7 +35,7 @@ const studioLightsSettings = [
     {
         name: 'Key Light - Couch',
         color: 0xffffff,
-        intensity: 15.0,
+        intensity: 30.0,
         width: 0.5,
         height: 0.5,
         position: { x: -0.5, y: 1.6, z: -0.7 },
@@ -43,17 +43,17 @@ const studioLightsSettings = [
     },
     {
         name: 'fill Light - Logo',
-        color: 0xFFF4E0, // Cool blue tint
-        intensity: 10.0,
+        color: 0xffffff, // Cool blue tint
+        intensity: 6.0,
         width: 1.0,
-        height: 0.8,
-        position: {  x: 0.5, y: 1.5, z: 2.0 },
+        height: 1.0,
+        position: {  x: 2, y: 3.0, z: 1.0 },
         lookAt: { x: -0.5, y: 0, z: 1.2 } // points at the logo
     },
     {
         name: 'fill Light - dual arch',
-        color: 0xa8c4d8, // warm light
-        intensity: 8.0,
+        color: 0xFFF4E0, // warm light
+        intensity: 2.0,
         width: 2.0,
         height: 2.0,
         position: {  x: -2.5, y: 3.5, z: 1.0 },
@@ -145,8 +145,8 @@ const cameraSettings = {
 }
 
 const sunSettings = {
-    color:        0xa8c4d8,   // warm white
-    intensity:    6.0,        // default value 6.0
+    color:        0xd8d4a8,   // warm white 0xa8c4d8
+    intensity:    8.0,        // default value 6.0
     elevation:    45,         // degrees above horizon (90 = straight up)
     azimuth:      162,        // degrees horizontal rotation
     distance:     30,         // how far from scene center
@@ -158,8 +158,8 @@ const sunSettings = {
 };
 
 const ambientSettings = {
-    color:     0xffffff,      // cool fill
-    intensity: 1.0,
+    color:     0xa8c4d8,      // cool fill
+    intensity: 0.6,
 };
 
 const displacementSettings = {
@@ -173,7 +173,7 @@ const displacementSettings = {
 
 const terrainSettings = {
     size:      40,            // plane width & height
-    segments:  512,           // vertex density (256 mobile, 512 desktop)
+    segments:  128,           // vertex density (256 mobile, 512 desktop)
     roughness: 0.9,
     metalness: 0.0,
     textureTiling: 12,        // how many times texture repeats
@@ -202,7 +202,7 @@ const rendererSettings = {
 const hemisphereSettings = {
     skyColor:    0x8ab4d4,  // cool blue — matches ambientSettings
     groundColor: 0xc4956a,  // warm amber — fills shadow with warmth
-    intensity:   0.4,
+    intensity:   0.5,
 };
 
 // ============================================================
@@ -464,12 +464,12 @@ function createPlinths() {
 
     // ── Single Unified Material ──────────────────────
     const baseMaterial = new THREE.MeshStandardMaterial({
-        color:        '#EDE1D2',
+        color:        '#eccca6',
         normalMap:    normalMap,
         roughnessMap: roughnessMap,
-        roughness:    1.0,
-        metalness:    0.5,
-        normalScale:  new THREE.Vector2(0.35, 0.35),
+        roughness:    1.2,
+        metalness:    0.2,
+        normalScale:  new THREE.Vector2(2, 2),
     });
 
     // ── Central plinth — unique size, stays a regular Mesh ──────
