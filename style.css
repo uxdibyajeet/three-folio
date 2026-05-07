@@ -13,3 +13,22 @@
     outline: none;
     overflow: hidden;
 }
+
+.label-renderer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: inherit;
+}
+
+.central-billboard {
+    font-size: 2rem;
+    color: oklch(0.99 0 185);
+    font-weight: 800;
+    white-space: nowrap;
+    pointer-events: none;
+    letter-spacing: 0.16rem;
+    text-transform: uppercase;
+}

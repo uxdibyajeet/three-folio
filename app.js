@@ -6,9 +6,12 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper.js';
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 
 // Global variables
-let scene, camera, renderer, timer, floor;
+let scene, camera, renderer, timer, floor, labelRenderer;
 
 const mouse = { x: 0, y: 0 };      // raw normalized mouse -1 to 1
 const target = { x: 0, y: 0 };     // smoothed target values
@@ -16,6 +19,38 @@ const target = { x: 0, y: 0 };     // smoothed target values
 // ============================================================
 //  GLOBAL CONFIGURATION
 // ============================================================
+
+//Developer top View
+// Add to global variables
+let isTopView = false;
+
+const topViewSettings = {
+    position: { x: 0, y: 20, z: 0 },  // directly above origin
+    lookAt:   { x: 0, y: 0,  z: 0 },
+    fov:      30,                       
+};
+
+//Studio Lighting controlls
+const studioLightsSettings = [
+    {
+        name: 'Key Light - Couch',
+        color: 0xffffff,
+        intensity: 15.0,
+        width: 0.5,
+        height: 0.5,
+        position: { x: -0.5, y: 1.6, z: -0.7 },
+        lookAt: { x: 0.35, y: 2, z: 0.2 } // Points at the couch
+    },
+    {
+        name: 'fill Light - Logo',
+        color: 0xa8c4d8, // Cool blue tint
+        intensity: 10.0,
+        width: 1.0,
+        height: 0.8,
+        position: {  x: 0.5, y: 1.5, z: 2.0 },
+        lookAt: { x: -0.5, y: 0, z: 1.2 } // points at the logo
+    }
+];
 
 // asset import and settings
 const assetSettings = {
@@ -28,7 +63,7 @@ const assetSettings = {
             name: 'couch', 
             path: '/models/couch.glb', 
             plinth: 'central', 
-            offset: { x: 0.25, y: 0, z: 0.2 }, 
+            offset: { x: 0.25, y: 0, z: 0.20 }, 
             scale: 1.0 
         },
         { 
@@ -55,11 +90,19 @@ const assetSettings = {
     ]
 };
 
+// billboard Text
+const labelSettings = {
+    centralBillboard: {
+        text:   'Portfolio', 
+        offset: { x: -0.4, y: 2.0, z: -0.9 }, // height above couch position
+    }
+};
+
 // other settings
 
 const plinthSettings = {
     horizontalDist: 3.5,
-    lateralDist: -2.0,
+    lateralDist: -1.0,
     centralHeight:  1.0,
     navHeight:      0.5,
     bevel:          0.025,
@@ -70,8 +113,8 @@ const plinthSettings = {
 const controlSettings = {
     azimuthRange:  0.1,
     altitudeRange: 0.025,
-    smoothingX:    0.02,   // slower = smoother horizontal, was 0.05
-    smoothingY:    0.05,   // vertical can stay snappier
+    smoothingX:    0.02,   // slower = smoother horizontal movement
+    smoothingY:    0.05,   // vertical is snappier
     minTilt:      -1.0,
     maxTilt:       0.25,
 };
@@ -82,11 +125,12 @@ const cameraSettings = {
     far: 1000,
     position: { x: 10, y: 2, z: 10 },
     lookAt:   { x: 0, y: 0, z: 0 },
+    mobileFovMultiplier: 1.6, // manually tested - best fit for portrait according to me
 }
 
 const sunSettings = {
     color:        0xa8c4d8,   // warm white
-    intensity:    6.0,
+    intensity:    6.0,        // default value 6.0
     elevation:    45,         // degrees above horizon (90 = straight up)
     azimuth:      162,        // degrees horizontal rotation
     distance:     30,         // how far from scene center
@@ -149,6 +193,38 @@ const hemisphereSettings = {
 //  Start of code
 // ============================================================
 
+// developer view
+
+function onKeyDown(e) {
+    if (e.key !== 't' && e.key !== 'T') return;
+
+    isTopView = !isTopView;
+
+    if (isTopView) {
+        // Switch to top view
+        camera.position.set(
+            topViewSettings.position.x,
+            topViewSettings.position.y,
+            topViewSettings.position.z
+        );
+        camera.lookAt(
+            topViewSettings.lookAt.x,
+            topViewSettings.lookAt.y,
+            topViewSettings.lookAt.z
+        );
+        camera.fov = topViewSettings.fov;
+        camera.updateProjectionMatrix();
+        console.log('🔭 Top view — placement mode');
+    } else {
+        // Restore experience view
+        camera.fov = cameraSettings.fov;
+        camera.updateProjectionMatrix();
+        console.log('👁️ Experience view restored');
+    }
+};
+
+// engine function
+
 function init() {
     scene = new THREE.Scene();
     timer = new THREE.Timer();
@@ -175,16 +251,26 @@ function init() {
     renderer.toneMappingExposure = rendererSettings.toneMappingExposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
+    // Billboard Text
+    // Label Renderer
+    labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.classList.add('label-renderer')
+    document.body.appendChild(labelRenderer.domElement);
+
     // Listeners
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('resize', onWindowResize);
+    window.addEventListener('keydown', onKeyDown);
 
     scene.fog = new THREE.FogExp2(fogSettings.color, fogSettings.density);
 
     // Initialize the world environment
+    RectAreaLightUniformsLib.init()          
     handleLights();
+    createStudioLights();
     createEnvironment();
-    animate();           
+    animate();        
 };
 
 //Handle orbit
@@ -230,7 +316,31 @@ function handleLights() {
     sunLamp.shadow.camera.top = sunSettings.shadowCameraSize;
     sunLamp.shadow.camera.bottom = -sunSettings.shadowCameraSize;
     sunLamp.shadow.bias = sunSettings.shadowBias; // prevents shadow acne
-}
+};
+
+//Other Lights
+function createStudioLights() {
+    studioLightsSettings.forEach(config => {
+        const rectLight = new THREE.RectAreaLight(
+            config.color, 
+            config.intensity, 
+            config.width, 
+            config.height
+        );
+
+        rectLight.position.set(config.position.x, config.position.y, config.position.z);
+        
+        // RectAreaLights need to "lookAt" a vector to rotate correctly
+        rectLight.lookAt(config.lookAt.x, config.lookAt.y, config.lookAt.z);
+
+        scene.add(rectLight);
+
+        // Optional: Add a helper to see the light's placement during fine-tuning
+        // const helper = new RectAreaLightHelper(rectLight);
+        // scene.add(helper);
+    });
+};
+
 
 function createEnvironment() {
     const geometry = new THREE.PlaneGeometry(terrainSettings.size, terrainSettings.size, terrainSettings.segments, terrainSettings.segments);
@@ -337,49 +447,57 @@ function createPlinths() {
     });
 
     // ── Single Unified Material ──────────────────────
-    // Using one material for all plinths saves GPU memory (draw calls)
     const baseMaterial = new THREE.MeshStandardMaterial({
-        color: '#EDE1D2',           // Set your preferred unified color here
-        normalMap: normalMap,
+        color:        '#EDE1D2',
+        normalMap:    normalMap,
         roughnessMap: roughnessMap,
-        roughness: 1.0,
-        metalness: 0.5,
-        normalScale: new THREE.Vector2(0.35, 0.35),
+        roughness:    1.0,
+        metalness:    0.5,
+        normalScale:  new THREE.Vector2(0.35, 0.35),
     });
 
-    // ── Central plinth ──────────────────────────────
+    // ── Central plinth — unique size, stays a regular Mesh ──────
     const centralGeo = new RoundedBoxGeometry(3, centralHeight, 3, segments, bevel);
-    const central = new THREE.Mesh(centralGeo, baseMaterial);
+    const central    = new THREE.Mesh(centralGeo, baseMaterial);
     central.position.set(0, navY, 0);
-    central.castShadow = true;
+    central.castShadow    = true;
     central.receiveShadow = true;
     scene.add(central);
 
-    // ── Left plinth ─────────────────────────────────
-    const leftGeo = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
-    const left = new THREE.Mesh(leftGeo, baseMaterial);
-    left.position.set(lateralDist, navY, horizontalDist);
-    left.castShadow = true;
-    left.receiveShadow = true;
-    scene.add(left);
+    // ── Nav plinths — identical size, use InstancedMesh ─────────
+    const navGeo  = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
+    const navMesh = new THREE.InstancedMesh(navGeo, baseMaterial, 3);
+    navMesh.castShadow    = true;
+    navMesh.receiveShadow = true;
 
-    // ── Right plinth ────────────────────────────────
-    const rightGeo = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
-    const right = new THREE.Mesh(rightGeo, baseMaterial);
-    right.position.set(horizontalDist, navY, lateralDist);
-    right.castShadow = true;
-    right.receiveShadow = true;
-    scene.add(right);
+    // Instance positions
+    const navPositions = [
+        { name: 'left',  x: lateralDist,   z: horizontalDist },  // 0
+        { name: 'right', x: horizontalDist, z: lateralDist   },  // 1
+        { name: 'front', x: horizontalDist, z: horizontalDist},  // 2
+    ];
 
-    // ── Front plinth ────────────────────────────────
-    const frontGeo = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
-    const front = new THREE.Mesh(frontGeo, baseMaterial);
-    front.position.set(horizontalDist, navY, horizontalDist);
-    front.castShadow = true;
-    front.receiveShadow = true;
-    scene.add(front);
+    const matrix = new THREE.Matrix4();
+    navPositions.forEach((pos, i) => {
+        matrix.makeTranslation(pos.x, navY, pos.z);
+        navMesh.setMatrixAt(i, matrix);
+    });
+    navMesh.instanceMatrix.needsUpdate = true;
+    scene.add(navMesh);
 
-    return { central, left, right, front };
+    // ── Return individual references for assetFactory ────────────
+    // Extract world positions from the instance matrix for asset placement
+    const leftPos  = new THREE.Vector3(navPositions[0].x, navY, navPositions[0].z);
+    const rightPos = new THREE.Vector3(navPositions[1].x, navY, navPositions[1].z);
+    const frontPos = new THREE.Vector3(navPositions[2].x, navY, navPositions[2].z);
+
+    // Wrap in position-only objects so assetFactory still works unchanged
+    return {
+        central: central,
+        left:    { position: leftPos  },
+        right:   { position: rightPos },
+        front:   { position: frontPos },
+    };
 }
 
 //importing assets
@@ -419,6 +537,11 @@ function assetFactory(plinths) {
                 });
 
                 scene.add(model);
+
+                //Populate Billboard
+                if (asset.name === 'couch') {
+                    createBillboard(model);
+                };
             }
         }, 
         undefined, 
@@ -535,57 +658,87 @@ function onWindowResize() {
     camera.aspect = aspect;
     //responsive resize
     if (aspect < 1) {
-        let calculatedFov = cameraSettings.fov * (1 / aspect) * 1.6;
+        let calculatedFov = cameraSettings.fov * (1 / aspect) * cameraSettings.mobileFovMultiplier;
         camera.fov = Math.min(75, calculatedFov);
     } else {
         camera.fov = cameraSettings.fov;
     };
 
     camera.updateProjectionMatrix();
-    
+    labelRenderer.setSize(width, height);
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, rendererSettings.pixelRatio));
 };
+
+// billboard Function
+function createBillboard(model) {
+    const { centralBillboard } = labelSettings;
+
+    const div = document.createElement('div');
+    div.className = 'central-billboard';
+    div.textContent = centralBillboard.text;
+
+    const label = new CSS2DObject(div);
+    label.position.set(
+        centralBillboard.offset.x,
+        centralBillboard.offset.y,
+        centralBillboard.offset.z
+    );
+
+    label.element.parentNode && (label.element.style.overflow = 'hidden');
+
+    const observer = new MutationObserver(() => {
+    if (label.element.parentElement) {
+            label.element.parentElement.style.overflow = 'hidden';
+            label.element.parentElement.style.pointerEvents = 'none';
+            observer.disconnect();
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    model.add(label);
+}
 
 function animate() {
     timer.update();
     const elapsedTime = timer.getElapsed();
 
-    // Separate smoothing for X and Y
-    target.x += (mouse.x - target.x) * controlSettings.smoothingX;
-    target.y += (mouse.y - target.y) * controlSettings.smoothingY;
+    // Only run parallax in experience mode
+    if (!isTopView) {
+        target.x += (mouse.x - target.x) * controlSettings.smoothingX;
+        target.y += (mouse.y - target.y) * controlSettings.smoothingY;
 
-    const clampedY = Math.max(controlSettings.minTilt, Math.min(controlSettings.maxTilt, target.y));
+        const clampedY = Math.max(controlSettings.minTilt, Math.min(controlSettings.maxTilt, target.y));
+        const azimuth  = -target.x * controlSettings.azimuthRange;
+        const altitude = -clampedY * controlSettings.altitudeRange;
 
-    // Negate both axes to invert direction
-    const azimuth  = -target.x  * controlSettings.azimuthRange;
-    const altitude = -clampedY  * controlSettings.altitudeRange;
+        const radius = Math.sqrt(
+            cameraSettings.position.x ** 2 +
+            cameraSettings.position.y ** 2 +
+            cameraSettings.position.z ** 2
+        );
 
-    const radius = Math.sqrt(
-        cameraSettings.position.x ** 2 +
-        cameraSettings.position.y ** 2 +
-        cameraSettings.position.z ** 2
-    );
+        const baseAzimuth  = Math.atan2(cameraSettings.position.x, cameraSettings.position.z);
+        const baseAltitude = Math.asin(cameraSettings.position.y / radius);
 
-    const baseAzimuth  = Math.atan2(cameraSettings.position.x, cameraSettings.position.z);
-    const baseAltitude = Math.asin(cameraSettings.position.y / radius);
+        camera.position.x = radius * Math.cos(baseAltitude - altitude) * Math.sin(baseAzimuth + azimuth);
+        camera.position.y = radius * Math.sin(baseAltitude - altitude);
+        camera.position.z = radius * Math.cos(baseAltitude - altitude) * Math.cos(baseAzimuth + azimuth);
 
-    camera.position.x = radius * Math.cos(baseAltitude - altitude) * Math.sin(baseAzimuth + azimuth);
-    camera.position.y = radius * Math.sin(baseAltitude - altitude);
-    camera.position.z = radius * Math.cos(baseAltitude - altitude) * Math.cos(baseAzimuth + azimuth);
-
-    camera.lookAt(
-        cameraSettings.lookAt.x,
-        cameraSettings.lookAt.y,
-        cameraSettings.lookAt.z
-    );
+        camera.lookAt(
+            cameraSettings.lookAt.x,
+            cameraSettings.lookAt.y,
+            cameraSettings.lookAt.z
+        );
+    }
 
     if (floor && floor.material.userData.shader) {
         floor.material.userData.shader.uniforms.uTime.value = elapsedTime;
     }
 
     renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
     window.requestAnimationFrame(animate);
-}
+};
 
 init();
