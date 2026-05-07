@@ -117,8 +117,8 @@ const labelSettings = {
 // other settings
 
 const plinthSettings = {
-    horizontalDist: 3.5,
-    lateralDist: -1.0,
+    horizontalDist: 3.0,
+    lateralDist: -0.5,
     centralHeight:  1.0,
     navHeight:      0.5,
     bevel:          0.025,
