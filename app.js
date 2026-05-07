@@ -43,13 +43,22 @@ const studioLightsSettings = [
     },
     {
         name: 'fill Light - Logo',
-        color: 0xa8c4d8, // Cool blue tint
+        color: 0xFFF4E0, // Cool blue tint
         intensity: 10.0,
         width: 1.0,
         height: 0.8,
         position: {  x: 0.5, y: 1.5, z: 2.0 },
         lookAt: { x: -0.5, y: 0, z: 1.2 } // points at the logo
-    }
+    },
+    {
+        name: 'fill Light - dual arch',
+        color: 0xa8c4d8, // warm light
+        intensity: 8.0,
+        width: 2.0,
+        height: 2.0,
+        position: {  x: -2.5, y: 3.5, z: 1.0 },
+        lookAt: { x: -0.8, y: 0, z: -1.2 } // points at the dual arch
+    },
 ];
 
 // asset import and settings
@@ -86,7 +95,14 @@ const assetSettings = {
             plinth: 'central', 
             offset: { x: -0.85, y: 0, z: 1.2 }, 
             scale: 1.0 
-        }
+        },
+        { 
+            name: 'cactus', 
+            path: '/models/prickley-pear.glb', 
+            plinth: 'central', 
+            offset: { x: 1.2, y: 0, z: -0.8 }, 
+            scale: 1.0 
+        },
     ]
 };
 
