@@ -110,13 +110,6 @@ const assetSettings = {
             offset: { x: 0, y: 0, z: 0 }, 
             scale: 1.0 
         },
-        { 
-            name: 'experience-monolith', 
-            path: '/models/experience.glb', 
-            plinth: 'right', 
-            offset: { x: 0, y: 0, z: 0 }, 
-            scale: 1.0 
-        },
     ]
 };
 
@@ -131,7 +124,7 @@ const labelSettings = {
 // other settings
 
 const plinthSettings = {
-    horizontalDist: 3.0,
+    horizontalDist: 2.75,
     lateralDist: -0.5,
     centralHeight:  1.0,
     navHeight:      0.5,
@@ -150,10 +143,10 @@ const controlSettings = {
 };
 
 const cameraSettings = {
-    fov: 30,
+    fov: 35,
     near: 0.1,
     far: 1000,
-    position: { x: 10, y: 2, z: 10 },
+    position: { x: 7, y: 3.0, z: 7 },
     lookAt:   { x: 0, y: 0, z: 0 },
     mobileFovMultiplier: 1.2, // manually tested - best fit for portrait according to me
 }
