@@ -103,6 +103,20 @@ const assetSettings = {
             offset: { x: 1.2, y: 0, z: -0.8 }, 
             scale: 1.0 
         },
+        { 
+            name: 'experience-monolith', 
+            path: '/models/experience.glb', 
+            plinth: 'left', 
+            offset: { x: 0, y: 0, z: 0 }, 
+            scale: 1.0 
+        },
+        { 
+            name: 'experience-monolith', 
+            path: '/models/experience.glb', 
+            plinth: 'right', 
+            offset: { x: 0, y: 0, z: 0 }, 
+            scale: 1.0 
+        },
     ]
 };
 
@@ -110,7 +124,7 @@ const assetSettings = {
 const labelSettings = {
     centralBillboard: {
         text:   'Portfolio', 
-        offset: { x: -0.4, y: 2.0, z: -0.9 }, // height above couch position
+        offset: { x: -0.4, y: 1.5, z: -0.9 }, // height above couch position
     }
 };
 
@@ -141,7 +155,7 @@ const cameraSettings = {
     far: 1000,
     position: { x: 10, y: 2, z: 10 },
     lookAt:   { x: 0, y: 0, z: 0 },
-    mobileFovMultiplier: 1.6, // manually tested - best fit for portrait according to me
+    mobileFovMultiplier: 1.2, // manually tested - best fit for portrait according to me
 }
 
 const sunSettings = {
@@ -163,17 +177,17 @@ const ambientSettings = {
 };
 
 const displacementSettings = {
-    strength:  0.05,           // height of peaks
+    strength:  0.08,           // height of peaks
     midlevel:  0.5,           // baseline offset (0=all peaks, 1=all craters)
     size:      0.035,          // noise frequency (smaller = finer detail)
     offset:    0.001,         // normal calculation precision
     worldScale: 40.0,         // should match plane size
-    animSpeed: 0.15,         // displacement Animation Speed
+    animSpeed: 0.05,         // displacement Animation Speed
 };
 
 const terrainSettings = {
     size:      40,            // plane width & height
-    segments:  128,           // vertex density (256 mobile, 512 desktop)
+    segments:  256,           // vertex density (256 mobile, 512 desktop)
     roughness: 0.9,
     metalness: 0.0,
     textureTiling: 12,        // how many times texture repeats
