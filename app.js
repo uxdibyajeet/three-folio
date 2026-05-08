@@ -9,9 +9,13 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { RectAreaLightHelper } from 'three/examples/jsm/helpers/RectAreaLightHelper.js';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 // Global variables
-let scene, camera, renderer, timer, floor, labelRenderer;
+let scene, camera, renderer, composer, timer, floor, labelRenderer;
 
 const mouse = { x: 0, y: 0 };      // raw normalized mouse -1 to 1
 const target = { x: 0, y: 0 };     // smoothed target values
@@ -111,6 +115,14 @@ const assetSettings = {
             scale: 1.0 
         },
     ]
+};
+
+//SSAO
+const ssaoSettings = {
+    radius:        0.01,   // how far it samples — keep small for tight contact shadows
+    minDistance:   0.001,
+    maxDistance:   0.01,
+    output:        SSAOPass.OUTPUT.Default, // change to .SSAO to debug just the AO pass
 };
 
 // billboard Text
@@ -265,7 +277,7 @@ function init() {
 
 
     // Renderer Setup
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); //alpha: true
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, rendererSettings.pixelRatio));
     renderer.shadowMap.enabled = true;
@@ -273,6 +285,22 @@ function init() {
     renderer.toneMapping = rendererSettings.toneMapping;
     renderer.toneMappingExposure = rendererSettings.toneMappingExposure;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    //Post Processing SSAO
+    composer = new EffectComposer(renderer);
+
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
+    ssaoPass.kernelRadius  = ssaoSettings.radius;
+    ssaoPass.minDistance   = ssaoSettings.minDistance;
+    ssaoPass.maxDistance   = ssaoSettings.maxDistance;
+    ssaoPass.output        = ssaoSettings.output;
+    composer.addPass(ssaoPass);
+
+    const outputPass = new OutputPass();
+    composer.addPass(outputPass);
 
     // Billboard Text
     // Label Renderer
@@ -688,6 +716,7 @@ function onWindowResize() {
     };
 
     camera.updateProjectionMatrix();
+    composer.setSize(width, height);
     labelRenderer.setSize(width, height);
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, rendererSettings.pixelRatio));
@@ -759,7 +788,7 @@ function animate() {
         floor.material.userData.shader.uniforms.uTime.value = elapsedTime;
     }
 
-    renderer.render(scene, camera);
+    composer.render();
     labelRenderer.render(scene, camera);
     window.requestAnimationFrame(animate);
 };
