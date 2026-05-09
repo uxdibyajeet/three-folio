@@ -127,6 +127,14 @@ const assetSettings = {
             scale: 1.0,
             material: 'wall',
         },
+        { 
+            name: 'work', 
+            path: '/models/work.glb', 
+            plinth: 'right', 
+            offset: { x: 0, y: 0, z: 0 }, 
+            scale: 1.0,
+            material: 'wall',
+        },
     ]
 };
 
@@ -141,7 +149,7 @@ const ssaoSettings = {
 // billboard Text
 const labelSettings = {
     centralBillboard: {
-        text:   'Portfolio', 
+        text:   'Work in Progress!', 
         offset: { x: -0.4, y: 1.5, z: -0.9 }, // height above couch position
     }
 };
