@@ -140,9 +140,9 @@ const assetSettings = {
 
 //SSAO
 const ssaoSettings = {
-    radius:        0.01,   // how far it samples — keep small for tight contact shadows
-    minDistance:   0.001,
-    maxDistance:   0.01,
+    radius:        0.03,   // how far it samples — keep small for tight contact shadows
+    minDistance:   0.002,
+    maxDistance:   0.08,
     output:        SSAOPass.OUTPUT.Default, // change to .SSAO to debug just the AO pass
 };
 
@@ -159,8 +159,8 @@ const labelSettings = {
 const plinthSettings = {
     horizontalDist: 2.75,
     lateralDist: -0.5,
-    centralHeight:  1.0,
-    navHeight:      0.5,
+    centralHeight:  0.5,
+    navHeight:      0.25,
     bevel:          0.025,
     segments:       2,
     navY: 0.0 // // center Y — box extends ±navHeight/2, so top face sits at navY + navHeight/2
@@ -186,15 +186,16 @@ const cameraSettings = {
 
 const sunSettings = {
     color:        0xd8d4a8,   // warm white 0xa8c4d8
-    intensity:    8.0,        // default value 6.0
+    intensity:    6.0,        // default value 6.0
     elevation:    45,         // degrees above horizon (90 = straight up)
     azimuth:      162,        // degrees horizontal rotation
     distance:     30,         // how far from scene center
     shadowMapSize: 2048,
-    shadowCameraSize: 15,     // left/right/top/bottom bounds
+    shadowCameraSize: 6,     // left/right/top/bottom bounds
     shadowCameraFar: 50,
-    shadowBias:   -0.0003,
+    shadowBias:   -0.00001,
     shadowRadius: 1.5,
+    shadowNormalBias: 0.0003,
 };
 
 const ambientSettings = {
@@ -380,6 +381,9 @@ function getMaterial(name) {
             roughness:    1.2,
             metalness:    0.2,
             normalScale:  new THREE.Vector2(2, 2),
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
         });
 
         return materialRegistry.wall;
@@ -435,6 +439,7 @@ function handleLights() {
     sunLamp.shadow.camera.top = sunSettings.shadowCameraSize;
     sunLamp.shadow.camera.bottom = -sunSettings.shadowCameraSize;
     sunLamp.shadow.bias = sunSettings.shadowBias; // prevents shadow acne
+    sunLamp.shadow.normalBias = sunSettings.shadowNormalBias;
 };
 
 //Other Lights
