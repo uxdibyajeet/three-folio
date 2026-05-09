@@ -15,7 +15,7 @@ import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 // Global variables
-let scene, camera, renderer, composer, timer, floor, labelRenderer;
+let scene, camera, renderer, composer, timer, floor, labelRenderer, loadingManager, isLoaded = false;
 
 const mouse = { x: 0, y: 0 };      // raw normalized mouse -1 to 1
 const target = { x: 0, y: 0 };     // smoothed target values
@@ -237,6 +237,17 @@ const hemisphereSettings = {
     intensity:   0.5,
 };
 
+
+//loading manager subtext
+const loadingMessages = {
+    // Triggered by file extension or name match
+    geometry:  'Sculpting the terrain...',
+    textures:  'Painting the sand...',
+    models:    'Placing objects in the world...',
+    compiling: 'Compiling shaders...',
+    done:      'Almost there...',
+};
+
 // ============================================================
 //  Start of code
 // ============================================================
@@ -274,6 +285,7 @@ function onKeyDown(e) {
 // engine function
 
 function init() {
+    setupLoadingManager();
     scene = new THREE.Scene();
     timer = new THREE.Timer();
     const canvas = document.querySelector('.webgl');
@@ -341,8 +353,7 @@ function init() {
 function getMaterial(name) {
     // Return cached instance if already created
     if (materialRegistry[name]) return materialRegistry[name];
-
-    const textureLoader = new THREE.TextureLoader();
+    const textureLoader = new THREE.TextureLoader(loadingManager);
 
     if (name === 'wall') {
         const normalMap    = textureLoader.load('/textures/wall/normal.jpg');
@@ -587,7 +598,7 @@ function createPlinths() {
 
 //importing assets
 function assetFactory(plinths) {
-    const loader = new GLTFLoader();
+    const loader = new GLTFLoader(loadingManager);
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath(assetSettings.dracoPath);
     loader.setDRACOLoader(dracoLoader);
@@ -790,14 +801,60 @@ function createBillboard(model) {
     observer.observe(document.body, { childList: true, subtree: true });
 
     model.add(label);
+};
+
+// Loading Manager Setup
+function setupLoadingManager() {
+    loadingManager = new THREE.LoadingManager();
+
+    const screen   = document.getElementById('loading-screen');
+    const subtext  = document.getElementById('loading-subtext');
+    const fill     = document.getElementById('loading-bar-fill');
+    const percent  = document.getElementById('loading-percent');
+
+    loadingManager.onStart = (url, loaded, total) => {
+        subtext.textContent = getLoadingMessage(url);
+    };
+
+    loadingManager.onProgress = (url, loaded, total) => {
+        const progress = Math.round((loaded / total) * 100);
+        fill.style.width    = `${progress}%`;
+        percent.textContent = `${progress}%`;
+        subtext.textContent = getLoadingMessage(url);
+    };
+
+    loadingManager.onLoad = () => {
+        percent.textContent = '100%';
+        fill.style.width    = '100%';
+        subtext.textContent = loadingMessages.done;
+        isLoaded = true;
+
+        // Short delay so user sees 100% before fade
+        setTimeout(() => {
+            screen.classList.add('hidden');
+            // Remove from DOM after fade completes
+            screen.addEventListener('transitionend', () => screen.remove(), { once: true });
+        }, 500);
+    };
+
+    loadingManager.onError = (url) => {
+        subtext.textContent = `Failed to load: ${url.split('/').pop()}`;
+        console.error(`LoadingManager: failed to load ${url}`);
+    };
 }
+
+function getLoadingMessage(url) {
+    if (url.match(/\.(glb|gltf)$/i)) return loadingMessages.models;
+    if (url.match(/\.(jpg|jpeg|png|webp)$/i)) return loadingMessages.textures;
+    return loadingMessages.geometry;
+};
 
 function animate() {
     timer.update();
     const elapsedTime = timer.getElapsed();
 
     // Only run parallax in experience mode
-    if (!isTopView) {
+    if (!isTopView && isLoaded) {
         target.x += (mouse.x - target.x) * controlSettings.smoothingX;
         target.y += (mouse.y - target.y) * controlSettings.smoothingY;
 
