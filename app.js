@@ -65,6 +65,13 @@ const studioLightsSettings = [
     },
 ];
 
+// Material Registry
+const materialRegistry = {
+    plinth: 'wall',   // populated on first call
+    sand:   null,   // future use
+    glass:  null,   // future use
+};
+
 // asset import and settings
 const assetSettings = {
     // Shared path for the Draco decoder
@@ -77,42 +84,48 @@ const assetSettings = {
             path: '/models/couch.glb', 
             plinth: 'central', 
             offset: { x: 0.25, y: 0, z: 0.20 }, 
-            scale: 1.0 
+            scale: 1.0,
+            material: null
         },
         { 
             name: 'arch', 
             path: '/models/arch-central.glb', 
             plinth: 'central', 
             offset: { x: -0.8, y: 0, z: -1.2 }, 
-            scale: 1.0 
+            scale: 1.0,
+            material: 'wall'
         },
         { 
             name: 'back-wall', 
             path: '/models/back-wall-central.glb', 
             plinth: 'central', 
             offset: { x: -0.5, y: 0, z: -0.8 }, 
-            scale: 1.0 
+            scale: 1.0,
+            material: 'wall'
         },
         { 
             name: 'logo', 
             path: '/models/logo-object.glb', 
             plinth: 'central', 
             offset: { x: -0.85, y: 0, z: 1.2 }, 
-            scale: 1.0 
+            scale: 1.0,
+            material: 'wall'
         },
         { 
             name: 'cactus', 
             path: '/models/prickley-pear.glb', 
             plinth: 'central', 
             offset: { x: 1.2, y: 0, z: -0.8 }, 
-            scale: 1.0 
+            scale: 1.0,
+            material: null
         },
         { 
             name: 'experience-monolith', 
             path: '/models/experience.glb', 
             plinth: 'left', 
             offset: { x: 0, y: 0, z: 0 }, 
-            scale: 1.0 
+            scale: 1.0,
+            material: 'wall',
         },
     ]
 };
@@ -324,6 +337,42 @@ function init() {
     animate();        
 };
 
+// Material Builder
+function getMaterial(name) {
+    // Return cached instance if already created
+    if (materialRegistry[name]) return materialRegistry[name];
+
+    const textureLoader = new THREE.TextureLoader();
+
+    if (name === 'wall') {
+        const normalMap    = textureLoader.load('/textures/wall/normal.jpg');
+        const roughnessMap = textureLoader.load('/textures/wall/roughness.jpg');
+
+        [normalMap, roughnessMap].forEach(tex => {
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(1, 1);
+        });
+
+        materialRegistry.wall = new THREE.MeshStandardMaterial({
+            color:        '#eccca6',
+            normalMap:    normalMap,
+            roughnessMap: roughnessMap,
+            roughness:    1.2,
+            metalness:    0.2,
+            normalScale:  new THREE.Vector2(2, 2),
+        });
+
+        return materialRegistry.wall;
+    }
+
+    // Add more materials here as needed:
+    // if (name === 'glass') { ... }
+
+    console.warn(`getMaterial: unknown material "${name}"`);
+    return null;
+};
+
 //Handle orbit
 function onMouseMove(e) {
 // Normalize to -1 ... 1
@@ -487,25 +536,9 @@ function createPlinths() {
 
     const textureLoader = new THREE.TextureLoader();
 
-    // ── Load maps ───────────────────────────────────
-    const normalMap    = textureLoader.load('/textures/plinth/normal.jpg');
-    const roughnessMap = textureLoader.load('/textures/plinth/roughness.jpg');
+    // load Material
+    const baseMaterial = getMaterial('wall');
 
-    [normalMap, roughnessMap].forEach(tex => {
-        tex.wrapS = THREE.RepeatWrapping;
-        tex.wrapT = THREE.RepeatWrapping;
-        tex.repeat.set(1, 1);
-    });
-
-    // ── Single Unified Material ──────────────────────
-    const baseMaterial = new THREE.MeshStandardMaterial({
-        color:        '#eccca6',
-        normalMap:    normalMap,
-        roughnessMap: roughnessMap,
-        roughness:    1.2,
-        metalness:    0.2,
-        normalScale:  new THREE.Vector2(2, 2),
-    });
 
     // ── Central plinth — unique size, stays a regular Mesh ──────
     const centralGeo = new RoundedBoxGeometry(3, centralHeight, 3, segments, bevel);
@@ -515,7 +548,7 @@ function createPlinths() {
     central.receiveShadow = true;
     scene.add(central);
 
-    // ── Nav plinths — identical size, use InstancedMesh ─────────
+    // Nav plinths identical size, use InstancedMesh
     const navGeo  = new RoundedBoxGeometry(2, navHeight, 2, segments, bevel);
     const navMesh = new THREE.InstancedMesh(navGeo, baseMaterial, 3);
     navMesh.castShadow    = true;
@@ -548,8 +581,9 @@ function createPlinths() {
         left:    { position: leftPos  },
         right:   { position: rightPos },
         front:   { position: frontPos },
+        baseMaterial: baseMaterial,
     };
-}
+};
 
 //importing assets
 function assetFactory(plinths) {
@@ -565,9 +599,9 @@ function assetFactory(plinths) {
 
             if (targetPlinth) {
                 // 1. Calculate Base Height (Top of Plinth)
-                const isCentral = asset.plinth === 'central';
+                const isCentral    = asset.plinth === 'central';
                 const plinthHeight = isCentral ? plinthSettings.centralHeight : plinthSettings.navHeight;
-                const baseHeight = plinthSettings.navY + (plinthHeight / 2);
+                const baseHeight   = plinthSettings.navY + (plinthHeight / 2);
 
                 // 2. Apply Coordinates (Plinth Position + Fine-tune Offsets)
                 model.position.set(
@@ -579,26 +613,33 @@ function assetFactory(plinths) {
                 // 3. Apply Scale
                 model.scale.setScalar(asset.scale);
 
-                // 4. Inherit Shadows
+                // 4. Shadows + Material override
                 model.traverse((node) => {
                     if (node.isMesh) {
-                        node.castShadow = true;
+                        node.castShadow    = true;
                         node.receiveShadow = true;
+
+                        // If manifest specifies a material key, fetch from registry
+                        // null or omitted = keep GLB's own material unchanged
+                        if (asset.material) {
+                            const mat = getMaterial(asset.material);
+                            if (mat) node.material = mat;
+                        }
                     }
                 });
 
                 scene.add(model);
 
-                //Populate Billboard
+                // Populate Billboard
                 if (asset.name === 'couch') {
                     createBillboard(model);
-                };
+                }
             }
-        }, 
-        undefined, 
+        },
+        undefined,
         (err) => console.error(`Error loading ${asset.name}:`, err));
     });
-}
+};
 
 //Logic for the terrain
 function applyDisplacement(material) {
